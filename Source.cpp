@@ -3,21 +3,25 @@
 #include <iomanip>
 #include "RandAndTime.h"
 
-#define NUM_TRAIN_ITERATIONS 100000
+#define NUM_TRAIN_ITERATIONS 1000000
 #define NUM_EVAL_ITERATIONS 100
 #define STARTING_PRAM_RANGE 0.1
-#define MAX_NODES_IN_LAYER 30
-#define LEARNING_RATE 0.001
-#define PROMPT_COL 15
-#define PRINT_COL 6
+
+#define PROMPT_COL 17
+#define PRINT_COL 9
+#define PRINT_PRECISION 6
+
 #define MOMENTUM 0
+#define LEARNING_RATE 0.001
+
+#define SEQ_LENGTH 300
+#define BATCH_SIZE 4
 
 #define NUM_LAYERS 2
-#define BATCH_SIZE 4
-#define SEQ_LENGTH 10
 #define NUM_INPUT_NODES 5
 #define NUM_OUTPUT_NODES 5
-#define NUM_FEEDING_NODES 10
+#define NUM_FEEDING_NODES 7
+#define MAX_NODES_IN_LAYER 12
 
 using namespace std;
 
@@ -26,7 +30,7 @@ const float EMPTY_FEEDING_VALUES[NUM_FEEDING_NODES]{};
 const int NODES_IN_LAYER[NUM_LAYERS + 1] =
 {
 	NUM_INPUT_NODES + NUM_FEEDING_NODES,
-	20,
+	12,
 	NUM_OUTPUT_NODES + NUM_FEEDING_NODES
 };
 
@@ -291,20 +295,22 @@ public:
 
 int main()
 {
-	cout << setprecision(3) << fixed;
+	cout << setprecision(PRINT_PRECISION) << fixed;
 
 	NetworkTrainer trainer;
 	float input[NUM_INPUT_NODES * SEQ_LENGTH];
 	float output[NUM_OUTPUT_NODES * SEQ_LENGTH];
-	trainer.ImportNetwork();/**/
+	trainer.ImportNetwork();
 
 	GenerateData(input, output);
 	trainer.ForwardPropagate(input);
 	for (int iteration = 0; iteration < SEQ_LENGTH; iteration++)
 	{
-		cout << left << setw(PROMPT_COL) << "AI says: " << right;
+		cout << left << setw(PROMPT_COL) << "AI Input: " << right;
+		PrintOutputOfIteration(iteration, input);
+		cout << left << setw(PROMPT_COL) << "AI Output: " << right;
 		trainer.PrintOutputOfIteration(iteration);
-		cout << left << setw(PROMPT_COL) << "Reality says: " << right;
+		cout << left << setw(PROMPT_COL) << "Expected Output: " << right;
 		PrintOutputOfIteration(iteration, output);
 		cout << endl;
 	}/**/
