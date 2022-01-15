@@ -14,3 +14,8 @@ TheDukeVin & theProgrammingBox
 
 ## Problems With This Design
 1. Curerrently still unstable with longer iterations and/or larger learning rates due to compounding changes.
+
+## Ideas To Counteract Problems With This Design
+1. Divide change by number of iterations
+2. Larger batch size
+3. Subdividing sequence training (probably not going to work)
