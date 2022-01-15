@@ -11,3 +11,6 @@ Currently, the network is trained to be stable after 10 iterations. We are curre
 
 ## Meet The Team
 TheDukeVin & theProgrammingBox
+
+## Problems With this design
+1. Curerrently still unstable with longer iterations and/or larger learning rates due to compounding changes.
