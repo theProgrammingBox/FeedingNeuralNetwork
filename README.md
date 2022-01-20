@@ -14,4 +14,4 @@ TheDukeVin & theProgrammingBox
 
 ## Problems With This Design
 1. Can be a bit unstable with longer iterations and/or larger learning rates due to compounding changes.
-2. It requires a storage of the entire sequence of networks to train properly so bigger networks and longer iterations may cause storage issues resulting in a crash.
+2. It needs to store the entire sequence of networks to train properly so bigger networks and longer iterations may cause storage issues resulting in a crash.
