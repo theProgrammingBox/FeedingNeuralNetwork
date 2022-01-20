@@ -13,12 +13,5 @@ Currently, the network is trained to be stable after 10 iterations. We are curre
 TheDukeVin & theProgrammingBox
 
 ## Problems With This Design
-1. Curerrently still unstable with longer iterations and/or larger learning rates due to compounding changes.
-2. The current training method requires a lot of storage so bigger networks and longer iterations will cause a crash.
-
-## Ideas To Counteract Problems With This Design
-1. Divide change by number of iterations
-2. Larger batch size
-3. Subdividing sequence training (probably not going to work)
-4. optimizing storage like only having one weights and bias array in training
-5. Storing data in heap or in seperate files
+1. Can be a bit unstable with longer iterations and/or larger learning rates due to compounding changes.
+2. It requires a storage of the entire sequence of networks to train properly so bigger networks and longer iterations may cause storage issues resulting in a crash.
