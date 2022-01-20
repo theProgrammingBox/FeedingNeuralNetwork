@@ -3,38 +3,37 @@
 #include <iomanip>
 #include "RandAndTime.h"
 
-#define NUM_TRAIN_ITERATIONS 1000000
-#define NUM_EVAL_ITERATIONS 100
-#define STARTING_PRAM_RANGE 0.1
+#define STARTING_PRAM_RANGE 0.1		// starting range for random weights and bias
+#define CHECK_IN_ITERATION 10000	// number of training cycles till evaluation and save
+#define EVALUATION_ITERATION 100	// the number of evaluations ran to get average error
 
-#define PROMPT_COL 17
-#define PRINT_COL 9
-#define PRINT_PRECISION 6
+#define PRINT_PRECISION 6			// number of decimals shown
+#define PROMPT_COL 17				// space for the print prompt
+#define PRINT_COL 9					// space for every number displayed
 
-#define MOMENTUM 0
-#define LEARNING_RATE 0.001
+#define LEARNING_RATE 0.002			// rate of which the network improvement is applies
 
-#define SEQ_LENGTH 300
-#define BATCH_SIZE 4
+#define SEQ_LENGTH 10				// how many iterations is the network running for
+#define BATCH_SIZE 1				// number of trainings averaged together
 
-#define NUM_LAYERS 2
-#define NUM_INPUT_NODES 5
-#define NUM_OUTPUT_NODES 5
-#define NUM_FEEDING_NODES 7
-#define MAX_NODES_IN_LAYER 12
+#define NUM_LAYERS 2				// not including the input layer
+#define NUM_INPUT_NODES 5			// self explanatory
+#define NUM_OUTPUT_NODES 5			// self explanatory
+#define NUM_FEEDING_NODES 6			// nodes passed into the next iteration
+#define MAX_NODES_IN_LAYER 30		// number ceiling to define the array sizes
 
 using namespace std;
 
-const float EMPTY_FEEDING_VALUES[NUM_FEEDING_NODES]{};
+const float EMPTY_FEEDING_VALUES[NUM_FEEDING_NODES]{};  // default values passed into the first iteration of feeding nodes
 
-const int NODES_IN_LAYER[NUM_LAYERS + 1] =
+const int NODES_IN_LAYER[NUM_LAYERS + 1] =				// network structure
 {
 	NUM_INPUT_NODES + NUM_FEEDING_NODES,
-	12,
+	11,
 	NUM_OUTPUT_NODES + NUM_FEEDING_NODES
 };
 
-void GenerateData(float* inputs, float* outputs)
+void GenerateData(float* inputs, float* outputs)		// generates the inputs and expected outputs for the set number of iterations
 {
 	bool bits[NUM_INPUT_NODES]{};
 	for (int iteration = 0; iteration < SEQ_LENGTH; iteration++)
@@ -49,7 +48,7 @@ void GenerateData(float* inputs, float* outputs)
 	}
 }
 
-void PrintOutputOfIteration(int iteration, float* output)
+void PrintOutputOfIteration(int iteration, float* output)	// prints the output/input of an iteration
 {
 	for (int node = 0; node < NUM_OUTPUT_NODES; node++)
 	{
@@ -58,29 +57,18 @@ void PrintOutputOfIteration(int iteration, float* output)
 	cout << endl;
 }
 
-class Network {
-private:
-	float ActivationFunction(float x)
-	{
-		if (x > 0) return x;
-		return 0.1 * x;
-	}
-
-	float DActivationFunction(float x)
-	{
-		if (x > 0) return 1;
-		return 0.1;
-	}
-
+class NetworkParameters		// stores the weights and biases for the network
+{
 public:
 	float weight[NUM_LAYERS][MAX_NODES_IN_LAYER][MAX_NODES_IN_LAYER]{};
 	float bias[NUM_LAYERS][MAX_NODES_IN_LAYER]{};
-	float preactivation[NUM_LAYERS][MAX_NODES_IN_LAYER]{};
-	float activation[NUM_LAYERS + 1][MAX_NODES_IN_LAYER]{};
-	float dPreactivation[NUM_LAYERS][MAX_NODES_IN_LAYER]{};
-	float dActivation[NUM_LAYERS + 1][MAX_NODES_IN_LAYER]{};
 
-	Network()
+	NetworkParameters()
+	{
+		Randomize();
+	}
+
+	void Randomize()		// randomized the weights and biases
 	{
 		int layer, childNode, parentNode;
 		for (layer = 0; layer < NUM_LAYERS; layer++)
@@ -96,65 +84,80 @@ public:
 		}
 	}
 
-	void ForwardPropagate()
+	void ExportNetwork()	// exports the weights and biases to files
 	{
+		ofstream netOut1("Network.txt");
 		int layer, parentNode, childNode;
+		netOut1 << NUM_LAYERS << ' ';
+		for (layer = 0; layer < NUM_LAYERS + 1; layer++)
+		{
+			netOut1 << NODES_IN_LAYER[layer] << ' ';
+		}
 		for (layer = 0; layer < NUM_LAYERS; layer++)
 		{
 			for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
 			{
-				preactivation[layer][parentNode] = bias[layer][parentNode];
+				netOut1 << bias[layer][parentNode] << ' ';
 				for (childNode = 0; childNode < NODES_IN_LAYER[layer]; childNode++)
 				{
-					preactivation[layer][parentNode] += weight[layer][childNode][parentNode] * activation[layer][childNode];
+					netOut1 << weight[layer][childNode][parentNode] << ' ';
 				}
-				activation[layer + 1][parentNode] = ActivationFunction(preactivation[layer][parentNode]);
 			}
 		}
-	}
-
-	void BackPropagate()
-	{
-		int layer, parentNode, childNode;
-		for (layer = NUM_LAYERS - 1; layer >= 0; layer--)
+		netOut1.close();
+		ofstream netOut2("NetworkBackup.txt");
+		netOut2 << NUM_LAYERS << ' ';
+		for (layer = 0; layer < NUM_LAYERS + 1; layer++)
 		{
-			for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
-			{
-				dPreactivation[layer][parentNode] = dActivation[layer + 1][parentNode] * DActivationFunction(preactivation[layer][parentNode]);
-			}
-			for (childNode = 0; childNode < NODES_IN_LAYER[layer]; childNode++)
-			{
-				dActivation[layer][childNode] = 0;
-				for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
-				{
-					dActivation[layer][childNode] += dPreactivation[layer][parentNode] * weight[layer][childNode][parentNode];
-				}
-			}
+			netOut2 << NODES_IN_LAYER[layer] << ' ';
 		}
-	}
-
-	void ExportNetwork()
-	{
-		ofstream netOut("Network.txt");
-		int layer, parentNode, childNode;
 		for (layer = 0; layer < NUM_LAYERS; layer++)
 		{
 			for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
 			{
-				netOut << bias[layer][parentNode] << ' ';
+				netOut2 << bias[layer][parentNode] << ' ';
 				for (childNode = 0; childNode < NODES_IN_LAYER[layer]; childNode++)
 				{
-					netOut << weight[layer][childNode][parentNode] << ' ';
+					netOut2 << weight[layer][childNode][parentNode] << ' ';
 				}
 			}
 		}
-		netOut.close();
+		netOut2.close();
 	}
 
-	void ImportNetwork()
+	void ImportNetwork()	// imports the weights and biases to files
 	{
-		ifstream netIn("Network.txt");
-		int layer, parentNode, childNode;
+		ifstream netCheck1("Network.txt", ifstream::ate | ifstream::binary);
+		ifstream netCheck2("NetworkBackup.txt", ifstream::ate | ifstream::binary);
+		ifstream netIn;
+		if (netCheck1.tellg() < netCheck2.tellg())
+		{
+			netIn.open("NetworkBackup.txt");
+			cout << "NetworkBackup.txt was opened\n";
+		}
+		else
+		{
+			netIn.open("Network.txt");
+			cout << "Network.txt was opened\n";
+		}
+		netCheck1.close();
+		netCheck2.close();
+		int numLayers, layer, parentNode, childNode;
+		netIn >> numLayers;
+		if (numLayers != NUM_LAYERS)
+		{
+			cout << "Different network structure detected\n";
+			return;
+		}
+		for (layer = 0; layer < NUM_LAYERS + 1; layer++)
+		{
+			netIn >> parentNode;
+			if (parentNode != NODES_IN_LAYER[layer])
+			{
+				cout << "Different network structure detected\n";
+				return;
+			}
+		}
 		for (layer = 0; layer < NUM_LAYERS; layer++)
 		{
 			for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
@@ -168,8 +171,77 @@ public:
 		}
 		netIn.close();
 	}
+};
 
-	void PrintOutput()
+class Network							// holds the data necessary to run and solve the training of a network parameter
+{
+private:
+	float ActivationFunction(float x)	// the activation function
+	{
+		if (x > 0) return x;
+		return 0.1 * x;
+	}
+
+	float DActivationFunction(float x)	// the derivative of the activation function
+	{
+		if (x > 0) return 1;
+		return 0.1;
+	}
+
+public:
+	NetworkParameters* networkParameters;
+	float preactivation[NUM_LAYERS][MAX_NODES_IN_LAYER]{};		// holds the sum of the previous layer's pass
+	float activation[NUM_LAYERS + 1][MAX_NODES_IN_LAYER]{};		// holds the preactivation after the activation function is applied
+	float dPreactivation[NUM_LAYERS][MAX_NODES_IN_LAYER]{};		// holds the effect of the node before the activation function to the cost
+	float dActivation[NUM_LAYERS + 1][MAX_NODES_IN_LAYER]{};	// holds the effect of the node after the activation function to the cost
+
+	Network()								// necessary for some reason
+	{
+	}
+
+	Network(NetworkParameters* nParameters) // stores a network parameter to train on
+	{
+		networkParameters = nParameters;
+	}
+
+	void ForwardPropagate()					// runs the network parameter
+	{
+		int layer, parentNode, childNode;
+		for (layer = 0; layer < NUM_LAYERS; layer++)
+		{
+			for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
+			{
+				preactivation[layer][parentNode] = networkParameters->bias[layer][parentNode];
+				for (childNode = 0; childNode < NODES_IN_LAYER[layer]; childNode++)
+				{
+					preactivation[layer][parentNode] += networkParameters->weight[layer][childNode][parentNode] * activation[layer][childNode];
+				}
+				activation[layer + 1][parentNode] = ActivationFunction(preactivation[layer][parentNode]);
+			}
+		}
+	}
+
+	void BackPropagate()					// trains the network parameter
+	{
+		int layer, parentNode, childNode;
+		for (layer = NUM_LAYERS - 1; layer >= 0; layer--)
+		{
+			for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
+			{
+				dPreactivation[layer][parentNode] = dActivation[layer + 1][parentNode] * DActivationFunction(preactivation[layer][parentNode]);
+			}
+			for (childNode = 0; childNode < NODES_IN_LAYER[layer]; childNode++)
+			{
+				dActivation[layer][childNode] = 0;
+				for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
+				{
+					dActivation[layer][childNode] += dPreactivation[layer][parentNode] * networkParameters->weight[layer][childNode][parentNode];
+				}
+			}
+		}
+	}
+
+	void PrintOutput()						// prints the output of the run
 	{
 		for (int node = 0; node < NUM_OUTPUT_NODES; node++)
 		{
@@ -179,40 +251,47 @@ public:
 	}
 };
 
-class NetworkTrainer {
+class NetworkTrainer								// trains an iteration of networks using its own output as input
+{
 private:
-	Network agent = Network();
-	Network network[SEQ_LENGTH]{};
-	float dBias[NUM_LAYERS][MAX_NODES_IN_LAYER]{};
-	float dWeight[NUM_LAYERS][MAX_NODES_IN_LAYER][MAX_NODES_IN_LAYER]{};
+	NetworkParameters agentParameters;				// the one network parameter
+	Network network[SEQ_LENGTH]{};					// list of networks under the one network parameter
+	float dBias[NUM_LAYERS][MAX_NODES_IN_LAYER]{};	// stores the change to the biases
+	float dWeight[NUM_LAYERS][MAX_NODES_IN_LAYER][MAX_NODES_IN_LAYER]{}; // stores the change to the weights
 
 public:
-	void ImportNetwork()
+	NetworkTrainer()								// creates a random network parameter to begin training
 	{
-		agent.ImportNetwork();
+		agentParameters = NetworkParameters();
 	}
 
-	void ExportNetwork()
+	void ImportNetwork()							// imports the network parameter
 	{
-		agent.ExportNetwork();
+		agentParameters.ImportNetwork();
 	}
 
-	void ForwardPropagate(float* inputs)
+	void ExportNetwork()							// imports the network parameter
 	{
-		network[0] = agent;
+		agentParameters.ExportNetwork();
+	}
+
+	void ForwardPropagate(float* inputs)			// runs the sequence of networks and carries over the partitioned outputs
+	{
+		network[0] = Network(&agentParameters);
 		memcpy(network[0].activation[0], inputs, NUM_INPUT_NODES * sizeof(float));
 		memcpy(network[0].activation[0] + NUM_INPUT_NODES, EMPTY_FEEDING_VALUES, NUM_FEEDING_NODES * sizeof(float));
 		network[0].ForwardPropagate();
+
 		for (int iteration = 1; iteration < SEQ_LENGTH; iteration++)
 		{
-			network[iteration] = agent;
+			network[iteration] = Network(&agentParameters);
 			memcpy(network[iteration].activation[0], inputs + iteration * NUM_INPUT_NODES, NUM_INPUT_NODES * sizeof(float));
 			memcpy(network[iteration].activation[0] + NUM_INPUT_NODES, network[iteration - 1].activation[NUM_LAYERS] + NUM_OUTPUT_NODES, NUM_FEEDING_NODES * sizeof(float));
 			network[iteration].ForwardPropagate();
 		}
 	}
 
-	void BackPropagate(float* inputs, float* expected)
+	void BackPropagate(float* inputs, float* expected) // solves the affects of the nodes to the cost
 	{
 		ForwardPropagate(inputs);
 		int iteration = SEQ_LENGTH - 1, layer, parentNode, childNode;
@@ -222,6 +301,7 @@ public:
 		}
 		memcpy(network[iteration].dActivation[NUM_LAYERS] + NUM_OUTPUT_NODES, EMPTY_FEEDING_VALUES, NUM_FEEDING_NODES * sizeof(float));
 		network[iteration].BackPropagate();
+
 		for (int iteration = SEQ_LENGTH - 2; iteration >= 0; iteration--)
 		{
 			for (int parentNode = 0; parentNode < NUM_OUTPUT_NODES; parentNode++)
@@ -248,31 +328,31 @@ public:
 		}
 	}
 
-	void Update()
+	void Update()		// applies the changes to the weights and biases
 	{
 		int layer, parentNode, childNode;
 		for (layer = 0; layer < NUM_LAYERS; layer++)
 		{
 			for (parentNode = 0; parentNode < NODES_IN_LAYER[layer + 1]; parentNode++)
 			{
-				agent.bias[layer][parentNode] -= dBias[layer][parentNode] * LEARNING_RATE / BATCH_SIZE;
-				dBias[layer][parentNode] *= MOMENTUM;
+				agentParameters.bias[layer][parentNode] -= dBias[layer][parentNode] * LEARNING_RATE / (BATCH_SIZE * SEQ_LENGTH);
+				dBias[layer][parentNode] = 0;
 				for (childNode = 0; childNode < NODES_IN_LAYER[layer]; childNode++)
 				{
-					agent.weight[layer][childNode][parentNode] -= dWeight[layer][childNode][parentNode] * LEARNING_RATE / BATCH_SIZE;
-					dWeight[layer][childNode][parentNode] *= MOMENTUM;
+					agentParameters.weight[layer][childNode][parentNode] -= dWeight[layer][childNode][parentNode] * LEARNING_RATE / (BATCH_SIZE * SEQ_LENGTH);
+					dWeight[layer][childNode][parentNode] = 0;
 				}
 			}
 		}
 	}
 
-	void Evaluate()
+	void Evaluate()		// evaluates the average error per each output node
 	{
 		float input[NUM_INPUT_NODES * SEQ_LENGTH];
 		float output[NUM_OUTPUT_NODES * SEQ_LENGTH];
 		float error = 0;
 		int round, iteration, node;
-		for (round = 0; round < NUM_EVAL_ITERATIONS; round++)
+		for (round = 0; round < EVALUATION_ITERATION; round++)
 		{
 			GenerateData(input, output);
 			ForwardPropagate(input);
@@ -284,10 +364,16 @@ public:
 				}
 			}
 		}
-		cout << "Average Error: " << error / (NUM_EVAL_ITERATIONS * SEQ_LENGTH * NUM_OUTPUT_NODES) << endl;
+		error /= EVALUATION_ITERATION * SEQ_LENGTH * NUM_OUTPUT_NODES;
+		cout << "Average Error: " << error << endl;
+		if (isnan(error))
+		{
+			cout << "irreversible damage detected, reverting\n";
+			ImportNetwork();
+		}
 	}
 
-	void PrintOutputOfIteration(int iteration)
+	void PrintOutputOfIteration(int iteration)	// prints the output for a certain iteration of the networks
 	{
 		network[iteration].PrintOutput();
 	}
@@ -302,10 +388,11 @@ int main()
 	float output[NUM_OUTPUT_NODES * SEQ_LENGTH];
 	trainer.ImportNetwork();
 
-	GenerateData(input, output);
+	/*GenerateData(input, output);
 	trainer.ForwardPropagate(input);
 	for (int iteration = 0; iteration < SEQ_LENGTH; iteration++)
 	{
+		cout << "Iteration " << (iteration + 1) << endl;
 		cout << left << setw(PROMPT_COL) << "AI Input: " << right;
 		PrintOutputOfIteration(iteration, input);
 		cout << left << setw(PROMPT_COL) << "AI Output: " << right;
@@ -313,9 +400,10 @@ int main()
 		cout << left << setw(PROMPT_COL) << "Expected Output: " << right;
 		PrintOutputOfIteration(iteration, output);
 		cout << endl;
-	}/**/
+	}*/
 
-	/*for (int iteration = 0; iteration < NUM_TRAIN_ITERATIONS; iteration++)
+	int iteration = 0;
+	while (true)
 	{
 		for (int batch = 0; batch < BATCH_SIZE; batch++)
 		{
@@ -323,12 +411,13 @@ int main()
 			trainer.BackPropagate(input, output);
 		}
 		trainer.Update();
-		if (iteration % 10000 == 0)
+		if (++iteration == CHECK_IN_ITERATION)
 		{
+			iteration = 0;
 			trainer.Evaluate();
+			trainer.ExportNetwork();
 		}
-	}
-	trainer.ExportNetwork();*/
+	}/**/
 
 	cout << setprecision(6);
 	cout.unsetf(ios::fixed);
