@@ -11,10 +11,10 @@
 #define PROMPT_COL 17				// space for the print prompt
 #define PRINT_COL 9					// space for every number displayed
 
-#define LEARNING_RATE 0.002			// rate of which the network improvement is applies
+#define LEARNING_RATE 0.001			// rate of which the network improvement is applies
 
 #define SEQ_LENGTH 10				// how many iterations is the network running for
-#define BATCH_SIZE 1				// number of trainings averaged together
+#define BATCH_SIZE 2				// number of trainings averaged together
 
 #define NUM_LAYERS 2				// not including the input layer
 #define NUM_INPUT_NODES 5			// self explanatory
@@ -33,7 +33,7 @@ const int NODES_IN_LAYER[NUM_LAYERS + 1] =				// network structure
 	NUM_OUTPUT_NODES + NUM_FEEDING_NODES
 };
 
-void GenerateData(float* inputs, float* outputs)		// generates the inputs and expected outputs for the set number of iterations
+void GenerateSequencedData(float* inputs, float* outputs)		// generates the inputs and expected outputs for the set number of iterations
 {
 	bool bits[NUM_INPUT_NODES]{};
 	for (int iteration = 0; iteration < SEQ_LENGTH; iteration++)
@@ -133,12 +133,12 @@ public:
 		if (netCheck1.tellg() < netCheck2.tellg())
 		{
 			netIn.open("NetworkBackup.txt");
-			cout << "NetworkBackup.txt was opened\n";
+			cout << "\nNetwork Parameters imported from NetworkBackup.txt\n\n";
 		}
 		else
 		{
 			netIn.open("Network.txt");
-			cout << "Network.txt was opened\n";
+			cout << "\nNetwork Parameters imported from Network.txt\n\n";
 		}
 		netCheck1.close();
 		netCheck2.close();
@@ -146,7 +146,7 @@ public:
 		netIn >> numLayers;
 		if (numLayers != NUM_LAYERS)
 		{
-			cout << "Different network structure detected\n";
+			cout << "\nReinitializing network parameters to different network structure\n\n";
 			return;
 		}
 		for (layer = 0; layer < NUM_LAYERS + 1; layer++)
@@ -154,7 +154,7 @@ public:
 			netIn >> parentNode;
 			if (parentNode != NODES_IN_LAYER[layer])
 			{
-				cout << "Different network structure detected\n";
+				cout << "\nReinitializing network parameters to different network structure\n\n";
 				return;
 			}
 		}
@@ -354,7 +354,7 @@ public:
 		int round, iteration, node;
 		for (round = 0; round < EVALUATION_ITERATION; round++)
 		{
-			GenerateData(input, output);
+			GenerateSequencedData(input, output);
 			ForwardPropagate(input);
 			for (iteration = 0; iteration < SEQ_LENGTH; iteration++)
 			{
@@ -383,41 +383,86 @@ int main()
 {
 	cout << setprecision(PRINT_PRECISION) << fixed;
 
-	NetworkTrainer trainer;
-	float input[NUM_INPUT_NODES * SEQ_LENGTH];
-	float output[NUM_OUTPUT_NODES * SEQ_LENGTH];
-	trainer.ImportNetwork();
-
-	/*GenerateData(input, output);
-	trainer.ForwardPropagate(input);
-	for (int iteration = 0; iteration < SEQ_LENGTH; iteration++)
+	bool choice = true;
+	bool error = false;
+	do
 	{
-		cout << "Iteration " << (iteration + 1) << endl;
-		cout << left << setw(PROMPT_COL) << "AI Input: " << right;
-		PrintOutputOfIteration(iteration, input);
-		cout << left << setw(PROMPT_COL) << "AI Output: " << right;
-		trainer.PrintOutputOfIteration(iteration);
-		cout << left << setw(PROMPT_COL) << "Expected Output: " << right;
-		PrintOutputOfIteration(iteration, output);
-		cout << endl;
-	}*/
+		if (error)
+		{
+			cin.clear();
+			cout << "\nInvalid option. Type 0 or 1\n\n0) Train the network\n1) Test the network\n\nChoice: ";
+		}
+		else
+		{
+			cout << "Choose an option\n\n0) Train the network\n1) Test the network\n\nChoice: ";
+		}
+		error = (cin >> choice) ? false : true;
+	} while (error);
 
-	int iteration = 0;
-	while (true)
+	if (choice)
 	{
-		for (int batch = 0; batch < BATCH_SIZE; batch++)
+		NetworkParameters agentParameters;
+		Network agent = Network(&agentParameters);
+		float input[NUM_INPUT_NODES * SEQ_LENGTH]{};
+		float output[NUM_OUTPUT_NODES * SEQ_LENGTH]{};
+		bool bits[NUM_INPUT_NODES]{};
+		agentParameters.ImportNetwork();
+
+		int iterations;
+		int totalIterations = 0;;
+		while (true)
 		{
-			GenerateData(input, output);
-			trainer.BackPropagate(input, output);
+			cout << "How many iterations would you like to run? (ex: 100): ";
+			cin >> iterations;
+			for (int iteration = 0; iteration < iterations; iteration++)
+			{
+				for (int node = 0; node < NUM_INPUT_NODES; node++)
+				{
+					bool bit = IntRand() % 2;
+					bits[node] ^= bit;
+					input[node] = bit;
+					output[node] = bits[node];
+				}
+				memcpy(agent.activation[0], input, NUM_INPUT_NODES * sizeof(float));
+				memcpy(agent.activation[0] + NUM_INPUT_NODES, agent.activation[NUM_LAYERS] + NUM_OUTPUT_NODES, NUM_FEEDING_NODES * sizeof(float));
+				agent.ForwardPropagate();
+				cout << "Iteration " << (totalIterations + iteration + 1) << endl;
+				cout << left << setw(PROMPT_COL) << "AI Input: " << right;
+				PrintOutputOfIteration(0, input);
+				cout << left << setw(PROMPT_COL) << "AI Output: " << right;
+				agent.PrintOutput();
+				cout << left << setw(PROMPT_COL) << "Expected Output: " << right;
+				PrintOutputOfIteration(0, output);
+				cout << endl;
+			}
+			totalIterations += iterations;
 		}
-		trainer.Update();
-		if (++iteration == CHECK_IN_ITERATION)
+	}
+	else
+	{
+		cout << "\nFeel free to exit the program anytime. Progress is automatically saved after every print.\n";
+		NetworkTrainer trainer;
+		float input[NUM_INPUT_NODES * SEQ_LENGTH]{};
+		float output[NUM_OUTPUT_NODES * SEQ_LENGTH]{};
+		trainer.ImportNetwork();
+
+		int iteration = 0;
+		while (true)
 		{
-			iteration = 0;
-			trainer.Evaluate();
-			trainer.ExportNetwork();
+			for (int batch = 0; batch < BATCH_SIZE; batch++)
+			{
+				GenerateSequencedData(input, output);
+				trainer.BackPropagate(input, output);
+			}
+			trainer.Update();
+			if (++iteration == CHECK_IN_ITERATION)
+			{
+				iteration = 0;
+				trainer.Evaluate();
+				trainer.ExportNetwork();
+			}
 		}
-	}/**/
+	}
 
 	cout << setprecision(6);
 	cout.unsetf(ios::fixed);
